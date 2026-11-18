@@ -1,138 +1,151 @@
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-  default     = "ap-south-1"
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
 }
 
-variable "environment" {
-  description = "Environment name"
-  type        = string
-  default     = "dev"
+provider "aws" {
+      region = var.aws_region
 }
 
-variable "vpc_cidr" {
-  description = "VPC CIDR"
-  type        = string
-  default     = "10.0.0.0/16"
+# VPC Module
+module "network" {
+  source = "../../modules/network"
+
+  environment = var.environment
+  vpc_cidr    = var.vpc_cidr
+
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  #   availability_zones   = var.availability_zones
 }
 
-variable "public_subnet_cidrs" {
-  description = "Public subnet CIDRs"
-  type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+# ALB (defined at environment level)
+resource "aws_lb" "main" {
+  name               = "${var.environment}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = module.network.public_subnet_ids
+
+  tags = {
+    Environment = var.environment
+  }
 }
 
-variable "private_subnet_cidrs" {
-  description = "Private subnet CIDRs"
-  type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.20.0/24"]
+resource "aws_lb_target_group" "app" {
+  name        = "${var.environment}-app-tg"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = module.network.vpc_id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    path                = "/"
+  }
+
+  tags = {
+    Environment = var.environment
+  }
 }
 
-variable "availability_zones" {
-  description = "Availability zones"
-  type        = list(string)
-  default     = ["ap-south-1a", "ap-south-1b"]
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
 }
 
-variable "container_image" {
-  description = "Container image"
-  type        = string
-  default     = "nginx:alpine"
+# ALB Security Group
+resource "aws_security_group" "alb" {
+  name        = "${var.environment}-alb-sg-new"
+  description = "Security group for ALB"
+  vpc_id      = module.network.vpc_id
+
+  ingress {
+    description = "HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Environment = var.environment
+  }
 }
 
-variable "container_port" {
-  description = "Container port"
-  type        = number
-  default     = 80
+# RDS Module
+module "rds" {
+  source = "../../modules/rds"
+
+  environment           = var.environment
+  vpc_id                = module.network.vpc_id
+  private_subnet_ids    = module.network.private_subnet_ids
+  ecs_security_group_id = module.ecs.ecs_security_group_id
+
+  engine            = var.rds_engine
+  engine_version    = var.rds_engine_version
+  instance_class    = var.rds_instance_class
+  allocated_storage = var.rds_allocated_storage
+
+  db_name  = var.rds_db_name
+  username = var.rds_username
+  password = var.rds_password
+
+  backup_retention_period = var.rds_backup_retention
+  skip_final_snapshot     = var.rds_skip_final_snapshot
+  deletion_protection     = var.rds_deletion_protection
+
+  parameter_group_family = var.rds_parameter_group_family
 }
 
-variable "ecs_task_cpu" {
-  description = "ECS task CPU"
-  type        = number
-  default     = 256
-}
+# ECS Module
+module "ecs" {
+  source = "../../modules/ecs"
 
-variable "ecs_task_memory" {
-  description = "ECS task memory"
-  type        = number
-  default     = 512
-}
+  environment        = var.environment
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
 
-variable "ecs_desired_count" {
-  description = "Desired number of ECS tasks"
-  type        = number
-  default     = 1
-}
+  container_image = var.container_image
+  container_port  = var.container_port
 
-variable "rds_engine" {
-  description = "RDS engine"
-  type        = string
-  default     = "postgres"
-}
+  task_cpu      = var.ecs_task_cpu
+  task_memory   = var.ecs_task_memory
+  desired_count = var.ecs_desired_count
 
-variable "rds_engine_version" {
-  description = "RDS engine version"
-  type        = string
-  default     = "16.9"
-}
+  rds_host                = module.rds.rds_address
+  rds_db_name             = var.rds_db_name
+  rds_username            = var.rds_username
+  rds_password_secret_arn = module.rds.password_secret_arn
 
-variable "rds_instance_class" {
-  description = "RDS instance class"
-  type        = string
-  default     = "db.t3.micro"
-}
+  aws_region = var.aws_region
 
-variable "rds_allocated_storage" {
-  description = "RDS allocated storage"
-  type        = number
-  default     = 20
-}
+  alb_security_group_id = aws_security_group.alb.id
+  target_group_arn      = aws_lb_target_group.app.arn
+  alb_listener_arn      = aws_lb_listener.http.arn
 
-variable "rds_db_name" {
-  description = "RDS database name"
-  type        = string
-  default     = "devops_db"
-}
-
-variable "rds_username" {
-  description = "RDS username"
-  type        = string
-  default     = "devops_user"
-}
-
-variable "rds_password" {
-  description = "RDS password"
-  type        = string
-  sensitive   = true
-  default     = "DevOps2024Password!"
-}
-
-variable "rds_backup_retention" {
-  description = "RDS backup retention days"
-  type        = number
-  default     = 7
-}
-
-variable "rds_skip_final_snapshot" {
-  description = "Skip final snapshot"
-  type        = bool
-  default     = true
-}
-
-variable "rds_deletion_protection" {
-  description = "Enable deletion protection"
-  type        = bool
-  default     = false
-}
-
-variable "rds_parameter_group_family" {
-  description = "RDS parameter group family"
-  type        = string
-  default     = "postgres16"
-}
-
-variable "log_retention_days" {
-  description = "CloudWatch log retention days"
-  type        = number
-  default     = 14
+  log_retention_days = var.log_retention_days
 }
