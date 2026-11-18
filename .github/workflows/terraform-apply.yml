@@ -1,24 +1,39 @@
-name: Terraform-apply
+name: Terraform Apply
 
 on:
-    push:
-        branches: [main]
+  push:
+    branches: [main]
 
 permissions:
-    contents: read
+  contents: read
 
 concurrency:
-    group: terraform-apply-dev
-    cancel-in-progress: false
+  group: terraform-apply-dev
+  cancel-in-progress: false
 
 jobs:
-    apply:
-        name:
-            Apply to dev
-        runs-on: ubuntu-latest
+  apply:
+    name: Apply to Dev
+    runs-on: ubuntu-latest
 
-        env:
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            AWS_DEFAULT_REGION: ap-south-1
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ap-south-1
 
+    defaults:
+      run:
+        working-directory: envs/dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false -no-color
