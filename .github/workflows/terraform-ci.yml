@@ -1,0 +1,43 @@
+name: Terraform CI
+
+on:
+    pull_request:
+        branches: [main]
+
+permissions:
+    contents: read
+
+jobs:
+    terraform:
+        name: Terraform Checks
+        runs-on: ubuntu
+
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: ap-south-1
+
+        defaults:
+            run:
+                working-directory: envs/dev
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+        
+          - name: Setup Terraform code
+            uses: hashicorp/setup-terraform@v3
+
+          - name: Terraform Format Check
+            run: terraform fmt -check -recursive
+
+          - name: Terraform Init
+            run: terraform init -input=false
+
+          - name: Terraform Validate
+            run: terraform validate
+
+          - name: Terraform plan
+            run: terraform plan -input=false -no-color
+
+
