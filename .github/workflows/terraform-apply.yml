@@ -18,6 +18,8 @@ env:
 
 jobs:
   apply-dev:
+    env:
+      TF_VAR_rds_password: ${{ secrets.RDS_PASSWORD_DEV }}
     name: Apply to Dev
     runs-on: ubuntu-latest
     defaults:
@@ -30,6 +32,8 @@ jobs:
       - run: terraform apply -auto-approve -input=false -no-color
 
   apply-prod:
+    env:
+      TF_VAR_rds_password: ${{ secrets.RDS_PASSWORD_PROD }}
     name: Apply to Prod
     needs: apply-dev              
     runs-on: ubuntu-latest
