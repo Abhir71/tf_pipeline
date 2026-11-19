@@ -124,7 +124,7 @@ variable "rds_backup_retention" {
 variable "rds_skip_final_snapshot" {
   description = "Skip final snapshot on deletion"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "rds_deletion_protection" {
