@@ -1,43 +1,46 @@
 name: Terraform CI
 
 on:
-    pull_request:
-        branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    terraform:
-        name: Terraform Checks
-        runs-on: ubuntu-latest
+  terraform:
+    name: Terraform Checks (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, prod]
 
-        env:
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY }}
-            AWS_DEFAULT_REGION: ap-south-1
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ap-south-1
+      TF_VAR_rds_password: ${{ secrets[format('RDS_PASSWORD_{0}', matrix.env)] }}
 
-        defaults:
-            run:
-                working-directory: envs/dev
+    defaults:
+      run:
+        working-directory: envs/${{ matrix.env }}
 
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
-        
-          - name: Setup Terraform code
-            uses: hashicorp/setup-terraform@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-          - name: Terraform Format Check
-            run: terraform fmt -check -recursive
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-          - name: Terraform Init
-            run: terraform init -input=false
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
 
-          - name: Terraform Validate
-            run: terraform validate
+      - name: Terraform Init
+        run: terraform init -input=false
 
-          - name: Terraform plan
-            run: terraform plan -input=false -no-color
+      - name: Terraform Validate
+        run: terraform validate
 
-
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color

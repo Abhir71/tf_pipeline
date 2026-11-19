@@ -15,18 +15,18 @@ resource "aws_ecs_cluster" "main" {
 # Task Definition
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.environment}-app"
-  network_mode            = "awsvpc"
+  network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                     = var.task_cpu
-  memory                  = var.task_memory
-  execution_role_arn      = aws_iam_role.ecs_execution.arn
-  task_role_arn          = aws_iam_role.ecs_task.arn
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
     {
       name  = "app"
       image = var.container_image
-      
+
       portMappings = [
         {
           containerPort = var.container_port
@@ -79,10 +79,10 @@ resource "aws_security_group" "ecs" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "Allow from ALB"
-    from_port   = var.container_port
-    to_port     = var.container_port
-    protocol    = "tcp"
+    description     = "Allow from ALB"
+    from_port       = var.container_port
+    to_port         = var.container_port
+    protocol        = "tcp"
     security_groups = [var.alb_security_group_id]
   }
 
