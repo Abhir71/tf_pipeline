@@ -68,7 +68,7 @@ resource "aws_lb" "main" {
   subnets            = module.network.public_subnet_ids
 
   # Enable deletion protection for prod....
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 
   tags = {
     Name        = "${var.environment}-alb"
@@ -99,14 +99,17 @@ resource "aws_lb_listener" "http" {
   port              = "80"
   protocol          = "HTTP"
 
-
   default_action {
-    type = "redirect"
+    type             = var.certificate_arn != "" ? "redirect" : "forward"
+    target_group_arn = var.certificate_arn != "" ? null : aws_lb_target_group.app.arn
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+    dynamic "redirect" {
+      for_each = var.certificate_arn != "" ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
     }
   }
 }
@@ -117,7 +120,7 @@ resource "aws_lb_listener" "https" {
   port              = "443"
   protocol          = "HTTPS"
 
-  ssl_policy      = "ELBSecurityPolicy-2016-08"
+  ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn = var.certificate_arn
 
   default_action {
@@ -178,7 +181,8 @@ module "ecs" {
 
   alb_security_group_id = aws_security_group.alb.id
   target_group_arn      = aws_lb_target_group.app.arn
-  alb_listener_arn      = aws_lb_listener.https.arn
+  alb_listener_arn      = try(aws_lb_listener.https[0].arn, aws_lb_listener.http.arn)
+  #alb_listener_arn      = aws_lb_listener.https.arn
 
 
   log_retention_days = var.log_retention_days
