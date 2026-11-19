@@ -149,7 +149,7 @@ variable "log_retention_days" {
 variable "certificate_arn" {
   description = "ACM certificate ARN for HTTPS"
   type        = string
-  default = ""
+  default     = ""
 }
 
 variable "sns_topic_arn" {
