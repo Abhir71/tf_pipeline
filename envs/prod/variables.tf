@@ -130,7 +130,7 @@ variable "rds_skip_final_snapshot" {
 variable "rds_deletion_protection" {
   description = "Enable deletion protection"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "rds_parameter_group_family" {
