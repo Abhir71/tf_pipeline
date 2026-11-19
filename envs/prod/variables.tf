@@ -136,7 +136,7 @@ variable "rds_deletion_protection" {
 variable "rds_parameter_group_family" {
   description = "RDS parameter group family"
   type        = string
-  default     = "postgres15"
+  default     = "postgres17"
 }
 
 
