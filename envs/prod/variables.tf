@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "us-east-1"
+  default     = "ap-south-1"
 }
 
 variable "environment" {
@@ -32,7 +32,7 @@ variable "private_subnet_cidrs" {
 variable "availability_zones" {
   description = "Availability zones"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["ap-south-1a", "ap-south-1b"]
 }
 
 
@@ -76,7 +76,7 @@ variable "rds_engine" {
 variable "rds_engine_version" {
   description = "RDS engine version"
   type        = string
-  default     = "15.4"
+  default     = "17"
 }
 
 variable "rds_instance_class" {
